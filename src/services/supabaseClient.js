@@ -13,14 +13,50 @@ export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
+export async function hashPassword(password, salt = 'hackmate_salt_2026') {
+  if (!password) return '';
+  const enc = new TextEncoder();
+  const data = enc.encode(password + salt);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // ==========================================
 // 1. STUDENTS SYNC HELPERS
 // ==========================================
 export function mapStudentFromDb(s) {
   if (!s) return null;
+
+  let resumeUrl = s.resume || '';
+  let passwordHash = s.password_hash || '';
+  let username = s.username || '';
+
+  if (s.resume && s.resume.startsWith('{"')) {
+    try {
+      const parsed = JSON.parse(s.resume);
+      if (parsed.passwordHash || parsed.username) {
+        resumeUrl = parsed.url || '';
+        passwordHash = parsed.passwordHash || passwordHash;
+        username = parsed.username || username;
+      }
+    } catch {}
+  }
+
+  // Fallback username from email or name if none set
+  if (!username) {
+    if (s.email && s.email.includes('@')) {
+      username = s.email.split('@')[0];
+    } else if (s.name) {
+      username = s.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    }
+  }
+
   return {
     id: s.id,
     name: s.name,
+    username: username,
+    passwordHash: passwordHash,
     college: s.college,
     branch: s.branch,
     div: s.div,
@@ -28,7 +64,7 @@ export function mapStudentFromDb(s) {
     github: s.github || '',
     linkedin: s.linkedin || '',
     phone: s.phone || '',
-    resume: s.resume || '',
+    resume: resumeUrl,
     title: s.title || '',
     preferredRole: s.preferred_role || 'Fullstack',
     preferredRoles: s.preferred_roles || [s.preferred_role || 'Fullstack'],
@@ -60,9 +96,39 @@ export async function getCloudStudents() {
   }
 }
 
+export async function findCloudStudent(identifier) {
+  if (!supabase || !identifier) return null;
+  try {
+    const q = identifier.trim().toLowerCase();
+    const { data, error } = await supabase
+      .from('students')
+      .select('*');
+
+    if (error || !data) return null;
+
+    const mapped = data.map(mapStudentFromDb);
+    return mapped.find(s => {
+      const email = (s.email || '').toLowerCase();
+      const uname = (s.username || '').toLowerCase();
+      const github = (s.github || '').toLowerCase().replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '');
+      const name = (s.name || '').toLowerCase();
+      return email === q || uname === q || github === q || name === q || s.id.toLowerCase() === q;
+    }) || null;
+  } catch (err) {
+    console.error('findCloudStudent error:', err);
+    return null;
+  }
+}
+
 export async function saveCloudStudent(student) {
   if (!supabase || !student) return null;
   try {
+    const resumePayload = JSON.stringify({
+      url: student.resume || '',
+      passwordHash: student.passwordHash || '',
+      username: student.username || ''
+    });
+
     const { data, error } = await supabase
       .from('students')
       .upsert({
@@ -75,7 +141,7 @@ export async function saveCloudStudent(student) {
         github: student.github || '',
         linkedin: student.linkedin || '',
         phone: student.phone || '',
-        resume: student.resume || '',
+        resume: resumePayload,
         title: student.title || '',
         preferred_role: student.preferredRole || 'Fullstack',
         preferred_roles: student.preferredRoles || [student.preferredRole || 'Fullstack'],
@@ -95,6 +161,7 @@ export async function saveCloudStudent(student) {
     return null;
   }
 }
+
 
 // ==========================================
 // 2. TEAMS SYNC HELPERS

@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
-import { X, Mail, User, LogIn, ArrowRight, Sparkles, CheckCircle2, Shield, Search } from 'lucide-react';
+import {
+  X, Mail, User, LogIn, ArrowRight, Sparkles, CheckCircle2,
+  Shield, Search, Lock, Eye, EyeOff, AlertCircle, Loader2,
+  ExternalLink
+} from 'lucide-react';
 import { GithubIcon, GoogleIcon } from './BrandIcons.jsx';
-import { supabase } from '../services/supabaseClient.js';
+import { supabase, hashPassword, findCloudStudent } from '../services/supabaseClient.js';
 
 export default function LoginModal({
   isOpen,
@@ -12,42 +16,149 @@ export default function LoginModal({
 }) {
   if (!isOpen) return null;
 
-  const [inputVal, setInputVal] = useState('');
+  const [activeTab, setActiveTab] = useState('direct'); // 'direct' | 'github' | 'picker'
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [accountSearch, setAccountSearch] = useState('');
-  const [activeTab, setActiveTab] = useState('direct'); // 'direct' | 'picker'
+  const [successMsg, setSuccessMsg] = useState('');
 
-  const handleDirectLogin = (e) => {
+  // GitHub Quick Connect state
+  const [githubInput, setGithubInput] = useState('');
+  const [githubLoading, setGithubLoading] = useState(false);
+  const [githubUser, setGithubUser] = useState(null);
+
+  // Search in account picker
+  const [accountSearch, setAccountSearch] = useState('');
+
+  const handleDirectLogin = async (e) => {
     e.preventDefault();
     setErrorMsg('');
-    const query = inputVal.trim().toLowerCase();
+    setSuccessMsg('');
+    const query = identifier.trim().toLowerCase();
+
     if (!query) {
-      setErrorMsg('Please enter your email or username/GitHub handle');
+      setErrorMsg('Please enter your Username or Email');
       return;
     }
 
-    // Match against allStudents
-    const matched = allStudents.find(s => {
-      const email = (s.email || '').toLowerCase();
-      const name = (s.name || '').toLowerCase();
-      const github = (s.github || '').toLowerCase().replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '');
-      return email === query || name === query || github === query || s.id.toLowerCase() === query;
-    });
+    if (!password) {
+      setErrorMsg('Please enter your password');
+      return;
+    }
 
-    if (matched) {
-      onLoginSuccess(matched);
-      onClose();
-    } else {
-      setErrorMsg(`No account found matching "${inputVal}". Please verify your email or sign up below.`);
+    setIsLoading(true);
+
+    try {
+      // 1. Check local state first
+      let matched = allStudents.find(s => {
+        const email = (s.email || '').toLowerCase();
+        const username = (s.username || '').toLowerCase();
+        const name = (s.name || '').toLowerCase();
+        const github = (s.github || '').toLowerCase().replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '');
+        return email === query || username === query || name === query || github === query || s.id.toLowerCase() === query;
+      });
+
+      // 2. If not found locally, query Supabase cloud directly
+      if (!matched) {
+        matched = await findCloudStudent(query);
+      }
+
+      if (!matched) {
+        setErrorMsg(`No account found matching "${identifier}". Would you like to create one?`);
+        setIsLoading(false);
+        return;
+      }
+
+      // 3. Verify Password
+      if (matched.passwordHash) {
+        const inputHash = await hashPassword(password);
+        if (inputHash !== matched.passwordHash) {
+          setErrorMsg('Incorrect password. Please verify and try again.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // 4. Success!
+      setSuccessMsg(`Welcome back, ${matched.name}!`);
+      setTimeout(() => {
+        onLoginSuccess(matched);
+        onClose();
+      }, 500);
+
+    } catch (err) {
+      console.error('Login error:', err);
+      setErrorMsg('An unexpected error occurred during login. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleSelectAccount = (student) => {
-    onLoginSuccess(student);
-    onClose();
+  const handleGithubSearch = async (e) => {
+    e.preventDefault();
+    const handle = githubInput.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '');
+    if (!handle) {
+      setErrorMsg('Please enter your GitHub handle');
+      return;
+    }
+
+    setGithubLoading(true);
+    setErrorMsg('');
+
+    try {
+      // 1. Fetch public GitHub profile
+      const res = await fetch(`https://api.github.com/users/${encodeURIComponent(handle)}`);
+      if (!res.ok) {
+        setErrorMsg(`GitHub user "@${handle}" not found. Please verify the handle.`);
+        setGithubLoading(false);
+        return;
+      }
+      const ghData = await res.json();
+      setGithubUser(ghData);
+
+      // 2. Check if a HackMate account exists with this GitHub handle
+      let matched = allStudents.find(s => {
+        const gh = (s.github || '').toLowerCase().replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '');
+        const uname = (s.username || '').toLowerCase();
+        return gh === handle.toLowerCase() || uname === handle.toLowerCase();
+      });
+
+      if (!matched) {
+        matched = await findCloudStudent(handle);
+      }
+
+      if (matched) {
+        setSuccessMsg(`Account linked to @${handle} found for ${matched.name}!`);
+        setTimeout(() => {
+          onLoginSuccess(matched);
+          onClose();
+        }, 600);
+      } else {
+        // Not registered yet — offer 1-click pre-filled registration
+        setSuccessMsg(`Found GitHub profile for ${ghData.name || handle}!`);
+      }
+    } catch (err) {
+      setErrorMsg('Could not verify GitHub profile. Please check your internet connection.');
+    } finally {
+      setGithubLoading(false);
+    }
   };
 
-  const handleOAuthLogin = async (provider) => {
+  const handleCreateFromGithub = () => {
+    if (!githubUser) return;
+    onClose();
+    onOpenSignUp({
+      name: githubUser.name || githubUser.login,
+      username: githubUser.login.toLowerCase(),
+      github: `https://github.com/${githubUser.login}`,
+      bio: githubUser.bio || `Developer on GitHub (@${githubUser.login})`
+    });
+  };
+
+  const handleGoogleClick = async () => {
     setErrorMsg('');
     try {
       if (!supabase) {
@@ -55,16 +166,17 @@ export default function LoginModal({
         return;
       }
       const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: window.location.href
-        }
+        provider: 'google',
+        options: { redirectTo: window.location.href }
       });
+
       if (error) {
-        setErrorMsg(`OAuth (${provider}) error: ${error.message}. You can log in directly with your email above.`);
+        setErrorMsg('Google OAuth is pending setup in Supabase Dashboard. You can log in directly with your email & password above!');
+        setActiveTab('direct');
       }
-    } catch (err) {
-      setErrorMsg(`Could not connect to ${provider} OAuth. Please log in directly with your email.`);
+    } catch {
+      setErrorMsg('Could not initialize Google OAuth. Please log in directly with your email & password.');
+      setActiveTab('direct');
     }
   };
 
@@ -73,6 +185,7 @@ export default function LoginModal({
     const q = accountSearch.toLowerCase();
     return (
       (s.name || '').toLowerCase().includes(q) ||
+      (s.username || '').toLowerCase().includes(q) ||
       (s.email || '').toLowerCase().includes(q) ||
       (s.college || '').toLowerCase().includes(q)
     );
@@ -81,9 +194,9 @@ export default function LoginModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all font-sans">
-        
-        {/* Header */}
-        <div className="relative p-6 sm:p-7 border-b border-slate-100 bg-gradient-to-br from-indigo-50/60 via-white to-purple-50/40">
+
+        {/* Modal Header */}
+        <div className="relative p-6 sm:p-7 border-b border-slate-100 bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/50">
           <button
             onClick={onClose}
             className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
@@ -93,49 +206,61 @@ export default function LoginModal({
 
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold font-mono mb-2">
             <Shield className="w-3.5 h-3.5 text-indigo-600" />
-            SECURE DEVICE LOGIN
+            DEVICE LOGIN & AUTH
           </div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">Log In to HackMate</h2>
           <p className="text-xs text-slate-500 mt-1">
-            Access your joined squads, invitations, and chat on this device.
+            Access your squads, live chats, and registration packets on this device.
           </p>
 
-          {/* Mode Switch Tabs */}
+          {/* Navigation Tabs */}
           <div className="flex bg-slate-100 p-1 rounded-xl mt-4 border border-slate-200">
             <button
               type="button"
-              onClick={() => { setActiveTab('direct'); setErrorMsg(''); }}
+              onClick={() => { setActiveTab('direct'); setErrorMsg(''); setSuccessMsg(''); }}
               className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
                 activeTab === 'direct'
                   ? 'bg-white text-indigo-700 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Email / Username
+              Password Login
             </button>
             <button
               type="button"
-              onClick={() => { setActiveTab('picker'); setErrorMsg(''); }}
+              onClick={() => { setActiveTab('github'); setErrorMsg(''); setSuccessMsg(''); }}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                activeTab === 'github'
+                  ? 'bg-white text-indigo-700 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              GitHub Connect
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('picker'); setErrorMsg(''); setSuccessMsg(''); }}
               className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
                 activeTab === 'picker'
                   ? 'bg-white text-indigo-700 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Registered Profiles ({allStudents.length})
+              Profiles ({allStudents.length})
             </button>
           </div>
         </div>
 
-        {/* Body */}
-        <div className="p-6 sm:p-7 space-y-5">
+        {/* Modal Body */}
+        <div className="p-6 sm:p-7 space-y-4">
 
+          {/* Error Message */}
           {errorMsg && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-start gap-2">
-              <span className="text-rose-500 font-bold">⚠️</span>
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-start gap-2.5 animate-fadeIn">
+              <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 {errorMsg}
-                {errorMsg.includes('No account found') && (
+                {errorMsg.includes('create one') && (
                   <button
                     onClick={() => { onClose(); onOpenSignUp(); }}
                     className="block mt-1 font-bold text-indigo-600 hover:underline"
@@ -147,38 +272,94 @@ export default function LoginModal({
             </div>
           )}
 
-          {activeTab === 'direct' ? (
+          {/* Success Message */}
+          {successMsg && (
+            <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-fadeIn">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+
+          {/* TAB 1: Direct Username/Email & Password Login */}
+          {activeTab === 'direct' && (
             <>
-              {/* Direct Login Form */}
-              <form onSubmit={handleDirectLogin} className="space-y-4">
+              <form onSubmit={handleDirectLogin} className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Your Registered Email or Username
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Username or Email
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                    <User className="absolute left-3.5 top-2.5 w-4 h-4 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="e.g. alex@mit.edu or Alex Rivera"
-                      value={inputVal}
-                      onChange={(e) => { setInputVal(e.target.value); setErrorMsg(''); }}
+                      required
+                      placeholder="e.g. rahul17 or rahul@college.edu"
+                      value={identifier}
+                      onChange={(e) => { setIdentifier(e.target.value); setErrorMsg(''); }}
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                       autoFocus
                     />
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>Password</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                    >
+                      {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      {showPassword ? 'Hide' : 'Show'}
+                    </button>
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-2.5 w-4 h-4 text-slate-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      placeholder="Enter your account password"
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setErrorMsg(''); }}
+                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-slate-600 font-medium">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    Remember me on this device
+                  </label>
+                </div>
+
                 <button
                   type="submit"
-                  className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99]"
+                  disabled={isLoading}
+                  className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60"
                 >
-                  <LogIn className="w-4 h-4" />
-                  Log In to this Device
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Authenticating...
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="w-4 h-4" />
+                      Log In to This Device
+                    </>
+                  )}
                 </button>
               </form>
 
               {/* Social Login Options */}
-              <div className="relative py-2">
+              <div className="relative py-1">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-slate-200"></div>
                 </div>
@@ -190,30 +371,98 @@ export default function LoginModal({
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => handleOAuthLogin('github')}
-                  className="py-2 px-3 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2 transition-colors"
+                  onClick={() => { setActiveTab('github'); setErrorMsg(''); }}
+                  className="py-2.5 px-3 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2 transition-colors"
                 >
                   <GithubIcon className="w-4 h-4 text-slate-900" />
                   GitHub
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleOAuthLogin('google')}
-                  className="py-2 px-3 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2 transition-colors"
+                  onClick={handleGoogleClick}
+                  className="py-2.5 px-3 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2 transition-colors"
                 >
                   <GoogleIcon className="w-4 h-4" />
                   Google
                 </button>
               </div>
             </>
-          ) : (
-            /* Account Picker for multi-user / testing */
+          )}
+
+          {/* TAB 2: GitHub Profile Instant Connect */}
+          {activeTab === 'github' && (
+            <div className="space-y-4">
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 leading-relaxed">
+                Connect your real GitHub account. Enter your GitHub handle to automatically sync your repositories, avatar, and verify your account.
+              </div>
+
+              <form onSubmit={handleGithubSearch} className="space-y-3">
+                <label className="block text-xs font-bold text-slate-700">
+                  GitHub Username or Profile URL
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-mono font-bold text-slate-400">github.com/</span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. prathmeshb17"
+                    value={githubInput}
+                    onChange={(e) => { setGithubInput(e.target.value); setErrorMsg(''); }}
+                    className="w-full pl-28 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-medium text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={githubLoading}
+                  className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+                >
+                  {githubLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <GithubIcon className="w-4 h-4" />}
+                  Verify GitHub Account
+                </button>
+              </form>
+
+              {githubUser && (
+                <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-3 animate-fadeIn">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={githubUser.avatar_url}
+                      alt={githubUser.login}
+                      className="w-12 h-12 rounded-xl ring-2 ring-indigo-400 object-cover"
+                    />
+                    <div>
+                      <div className="text-sm font-bold text-slate-900">{githubUser.name || githubUser.login}</div>
+                      <div className="text-xs font-mono text-indigo-700">@{githubUser.login}</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        {githubUser.public_repos} public repos • {githubUser.followers} followers
+                      </div>
+                    </div>
+                  </div>
+
+                  {githubUser.bio && (
+                    <p className="text-xs text-slate-600 italic">"{githubUser.bio}"</p>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleCreateFromGithub}
+                    className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-500/20 flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    Complete Profile with GitHub <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: Registered Profile Picker */}
+          {activeTab === 'picker' && (
             <div className="space-y-3">
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search profiles by name, email, college..."
+                  placeholder="Search profiles by name, username, email..."
                   value={accountSearch}
                   onChange={(e) => setAccountSearch(e.target.value)}
                   className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
@@ -223,13 +472,16 @@ export default function LoginModal({
               <div className="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                 {filteredAccounts.length === 0 ? (
                   <p className="text-center py-6 text-xs text-slate-400 font-medium">
-                    No matching registered profiles found.
+                    No registered profiles found.
                   </p>
                 ) : (
                   filteredAccounts.map(student => (
                     <div
                       key={student.id}
-                      onClick={() => handleSelectAccount(student)}
+                      onClick={() => {
+                        onLoginSuccess(student);
+                        onClose();
+                      }}
                       className="p-3 rounded-2xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/50 cursor-pointer flex items-center justify-between transition-all group"
                     >
                       <div className="flex items-center gap-3">
@@ -243,13 +495,13 @@ export default function LoginModal({
                             {student.name}
                           </div>
                           <div className="text-[10px] text-slate-500 font-mono">
-                            {student.email || student.college || 'Registered Student'}
+                            @{student.username || student.email?.split('@')[0] || 'student'} • {student.college || 'Engineering'}
                           </div>
                         </div>
                       </div>
 
                       <div className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                        Select
+                        Log In
                       </div>
                     </div>
                   ))
@@ -258,15 +510,15 @@ export default function LoginModal({
             </div>
           )}
 
-          {/* Footer Call to Action */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+          {/* Modal Footer Link */}
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
             <span className="text-slate-500 font-medium">New to HackMate?</span>
             <button
               type="button"
               onClick={() => { onClose(); onOpenSignUp(); }}
               className="font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors"
             >
-              Create Account
+              Create New Profile
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
