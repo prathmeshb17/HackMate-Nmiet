@@ -70,9 +70,16 @@ export default function App() {
     }
   });
 
+  const HACKATHONS_SYNC_VERSION = 'v2026_10_17_live_clean_354';
+
   const [hackathons, setHackathons] = useState(() => {
     try {
       const hosted = getHostedHackathons();
+      const storedVersion = localStorage.getItem('hackmate_hackathons_version');
+      if (storedVersion !== HACKATHONS_SYNC_VERSION) {
+        localStorage.removeItem('hackmate_hackathons');
+        localStorage.setItem('hackmate_hackathons_version', HACKATHONS_SYNC_VERSION);
+      }
       const saved = localStorage.getItem('hackmate_hackathons');
       const map = new Map();
       INITIAL_HACKATHONS.forEach(h => map.set(h.id, h));

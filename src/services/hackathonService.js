@@ -48,8 +48,8 @@ export function saveHostedHackathon(hackathon) {
   }
 }
 
-export const TOTAL_UNSTOP_OPPORTUNITIES = 6788;
-export const TOTAL_DEVPOST_OPPORTUNITIES = 194;
+export const TOTAL_UNSTOP_OPPORTUNITIES = 249;
+export const TOTAL_DEVPOST_OPPORTUNITIES = 90;
 
 function cleanHtmlText(text) {
   if (!text) return '';
@@ -68,6 +68,19 @@ function cleanHtmlText(text) {
  */
 export function mapUnstopItem(item) {
   if (!item || !item.id) return null;
+
+  // Filter out any finished or ended hackathons
+  if (item.regnRequirements?.reg_status === 'FINISHED' || item.remain_days === 'Ended') {
+    return null;
+  }
+
+  const endStr = item.regnRequirements?.end_regn_dt || item.end_date || item.start_date;
+  if (endStr) {
+    const dEnd = new Date(endStr);
+    if (dEnd < new Date()) {
+      return null;
+    }
+  }
 
   const skills = (item.filters || [])
     .filter(f => f.type === 'category' || f.type === 'eligible')
