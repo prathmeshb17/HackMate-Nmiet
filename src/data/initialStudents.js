@@ -1,0 +1,35 @@
+// Clean initial students - Users register fresh via Onboarding Modal
+export const INITIAL_STUDENTS = [];
+
+export const ALL_PREDEFINED_SKILLS = [
+  { name: 'React', category: 'Frontend' },
+  { name: 'React Native', category: 'Frontend' },
+  { name: 'Next.js', category: 'Frontend' },
+  { name: 'TypeScript', category: 'Frontend' },
+  { name: 'JavaScript', category: 'Frontend' },
+  { name: 'HTML5', category: 'Frontend' },
+  { name: 'CSS3', category: 'Frontend' },
+  { name: 'Tailwind', category: 'Frontend' },
+  { name: 'Vue.js', category: 'Frontend' },
+  { name: 'Figma', category: 'UI/UX' },
+  { name: 'UI/UX', category: 'UI/UX' },
+  { name: 'Prototyping', category: 'UI/UX' },
+  { name: 'Node.js', category: 'Backend' },
+  { name: 'Express', category: 'Backend' },
+  { name: 'Python', category: 'Backend' },
+  { name: 'Flask', category: 'Backend' },
+  { name: 'FastAPI', category: 'Backend' },
+  { name: 'Go', category: 'Backend' },
+  { name: 'Rust', category: 'Backend' },
+  { name: 'PostgreSQL', category: 'Database' },
+  { name: 'MongoDB', category: 'Database' },
+  { name: 'Redis', category: 'Database' },
+  { name: 'PyTorch', category: 'AI/ML' },
+  { name: 'TensorFlow', category: 'AI/ML' },
+  { name: 'scikit-learn', category: 'AI/ML' },
+  { name: 'Machine Learning', category: 'AI/ML' },
+  { name: 'NLP', category: 'AI/ML' },
+  { name: 'Docker', category: 'DevOps' },
+  { name: 'AWS', category: 'DevOps' },
+  { name: 'Kubernetes', category: 'DevOps' }
+];
