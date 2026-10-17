@@ -1,3 +1,3 @@
-import { VERIFIED_BASELINE_HACKATHONS } from '../services/hackathonService.js';
+import { ALL_HACKATHONS } from './allHackathons.js';
 
-export const INITIAL_HACKATHONS = VERIFIED_BASELINE_HACKATHONS;
+export const INITIAL_HACKATHONS = ALL_HACKATHONS;

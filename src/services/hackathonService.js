@@ -20,131 +20,11 @@ export const PLATFORMS = {
 const HOSTED_STORAGE_KEY = 'hackmate_hosted_hackathons';
 const HACKATHONS_CACHE_KEY = 'hackmate_cached_hackathons';
 
-// Curated Verified Baseline Hackathons (fallback & instant render)
-export const VERIFIED_BASELINE_HACKATHONS = [
-  {
-    id: 'unstop-base-1',
-    title: 'AI Product Hackathon 2026',
-    organizer: 'Unstop Community & Tech Giants',
-    platform: 'Unstop',
-    status: 'LIVE_NOW',
-    registrationUrl: 'https://unstop.com/hackathons/ai-product-hackathon-2026',
-    date: 'Oct 24 - Oct 25, 2026',
-    startDate: '2026-10-24',
-    endDate: '2026-10-25',
-    mode: 'Online',
-    prizePool: '₹2,50,000',
-    maxTeamSize: 4,
-    requiredSkills: ['Python', 'FastAPI', 'React', 'Machine Learning'],
-    category: 'AI/ML',
-    description: 'Build real-world functional agentic AI solutions, enterprise productivity workflows, and autonomous system bots with direct mentorship.',
-    bannerColor: 'from-blue-600 via-indigo-700 to-sky-900',
-    badgeText: 'Trending on Unstop',
-    isHosted: false
-  },
-  {
-    id: 'unstop-base-2',
-    title: 'FutureStack National Challenge',
-    organizer: 'National Tech Consortium',
-    platform: 'Unstop',
-    status: 'LIVE_NOW',
-    registrationUrl: 'https://unstop.com/hackathons/futurestack-hackathon',
-    date: 'Oct 20 - Oct 22, 2026',
-    startDate: '2026-10-20',
-    endDate: '2026-10-22',
-    mode: 'Online',
-    prizePool: '₹5,00,000 + PPO',
-    maxTeamSize: 3,
-    requiredSkills: ['React', 'Node.js', 'PostgreSQL', 'Docker'],
-    category: 'Fullstack',
-    description: '48-hour high-intensity national software hackathon. Top teams receive direct pre-placement interview opportunities and incubation credits.',
-    bannerColor: 'from-amber-600 via-orange-600 to-red-700',
-    badgeText: 'PPO Opportunities',
-    isHosted: false
-  },
-  {
-    id: 'unstop-base-3',
-    title: 'Smart India Hackathon (SIH 2026)',
-    organizer: 'Ministry of Education & AICTE',
-    platform: 'Unstop',
-    status: 'UPCOMING',
-    registrationUrl: 'https://www.sih.gov.in/',
-    date: 'Dec 15 - Dec 18, 2026',
-    startDate: '2026-12-15',
-    endDate: '2026-12-18',
-    mode: 'Hybrid',
-    location: 'Nodal Centers Nationwide',
-    prizePool: '₹1,00,00,000',
-    maxTeamSize: 6,
-    requiredSkills: ['Python', 'React', 'AI/ML', 'Cloud', 'Cybersecurity'],
-    category: 'National Flagship',
-    description: 'India’s biggest open innovation model for students to solve pressing challenges of ministries, departments, and leading industries.',
-    bannerColor: 'from-orange-500 via-amber-600 to-blue-900',
-    badgeText: 'Flagship SIH',
-    isHosted: false
-  },
-  {
-    id: 'devfolio-base-1',
-    title: 'Lean In Hacks 8.0',
-    organizer: 'Lean In Chapter',
-    platform: 'Devfolio',
-    status: 'LIVE_NOW',
-    registrationUrl: 'https://leaninhacks8.devfolio.co/',
-    date: 'Oct 20 - Oct 22, 2026',
-    startDate: '2026-10-20',
-    endDate: '2026-10-22',
-    mode: 'Online',
-    prizePool: '₹2,00,000',
-    maxTeamSize: 4,
-    requiredSkills: ['React', 'Python', 'UI/UX', 'Cloud'],
-    category: 'Open Innovation',
-    description: 'Empowering diverse developers and builders to engineer social impact tools, sustainable solutions, and community web applications.',
-    bannerColor: 'from-rose-500 via-pink-600 to-purple-800',
-    badgeText: 'Diversity in Tech',
-    isHosted: false
-  },
-  {
-    id: 'devfolio-base-2',
-    title: 'Hacker House Goa 2026',
-    organizer: 'Web3 & AI Foundation',
-    platform: 'Devfolio',
-    status: 'UPCOMING',
-    registrationUrl: 'https://hackerhousegoa.devfolio.co/',
-    date: 'Oct 28 - Nov 01, 2026',
-    startDate: '2026-10-28',
-    endDate: '2026-11-01',
-    mode: 'In-Person',
-    location: 'Anjuna, Goa',
-    prizePool: '$30,000',
-    maxTeamSize: 4,
-    requiredSkills: ['Rust', 'Python', 'Solidity', 'AI/ML'],
-    category: 'Web3 & AI',
-    description: '5-day residency hacker house on the beaches of Goa. Build decentralized AI pipelines, smart contracts, and high-throughput dApps.',
-    bannerColor: 'from-amber-500 via-orange-600 to-rose-700',
-    badgeText: 'In-Person Residency',
-    isHosted: false
-  },
-  {
-    id: 'mlh-base-1',
-    title: 'Global Hack Week: AI & Open Source',
-    organizer: 'Major League Hacking (MLH)',
-    platform: 'MLH',
-    status: 'LIVE_NOW',
-    registrationUrl: 'https://mlh.io/seasons/2026/events',
-    date: 'Oct 14 - Oct 21, 2026',
-    startDate: '2026-10-14',
-    endDate: '2026-10-21',
-    mode: 'Online',
-    prizePool: '$10,000 in Swag & Credits',
-    maxTeamSize: 4,
-    requiredSkills: ['Python', 'JavaScript', 'HTML5', 'Git'],
-    category: 'Open Source',
-    description: 'A full week of hands-on technical workshops, daily hacker challenges, and open-source software building with global MLH peers.',
-    bannerColor: 'from-red-600 via-rose-700 to-amber-800',
-    badgeText: 'Official MLH Season',
-    isHosted: false
-  }
-];
+import { ALL_HACKATHONS } from '../data/allHackathons.js';
+
+// Curated Verified Baseline Hackathons across all formats (500+ challenges)
+export const VERIFIED_BASELINE_HACKATHONS = ALL_HACKATHONS;
+
 
 export function getHostedHackathons() {
   try {
@@ -398,6 +278,16 @@ export function deduplicateHackathons(list) {
  */
 export async function fetchQuickLiveHackathons() {
   const hosted = getHostedHackathons();
+  
+  let staticList = [];
+  try {
+    const res = await fetch('./hackathons.json');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) staticList = data;
+    }
+  } catch {}
+
   const [unstopP1, unstopP2, devpostList] = await Promise.allSettled([
     fetchUnstopPage(1, 100),
     fetchUnstopPage(2, 100),
@@ -413,6 +303,7 @@ export async function fetchQuickLiveHackathons() {
     ...p1,
     ...p2,
     ...devpost,
+    ...staticList,
     ...VERIFIED_BASELINE_HACKATHONS
   ];
 
@@ -421,12 +312,21 @@ export async function fetchQuickLiveHackathons() {
 
 /**
  * Master Sync All:
- * Syncs 1,000+ hackathons from Unstop (10 pages x 100 items) + all Devpost pages + hosted
+ * Syncs 1,000+ hackathons across all formats: Unstop, Devpost, Devfolio, MLH, HackCulture & Community
  */
 export async function fetchAllLiveHackathons(maxUnstopPages = 10, onProgress = null) {
   const hosted = getHostedHackathons();
 
-  // Run Devpost and Unstop bulk fetches
+  let staticList = [];
+  try {
+    const res = await fetch('./hackathons.json');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) staticList = data;
+    }
+  } catch {}
+
+  // Run Devpost and Unstop bulk fetches (works on localhost dev proxy or direct when available)
   const [devpostRes, unstopRes] = await Promise.allSettled([
     fetchLiveDevpostHackathons(4),
     fetchBulkUnstopHackathons(1, maxUnstopPages, onProgress)
@@ -439,6 +339,7 @@ export async function fetchAllLiveHackathons(maxUnstopPages = 10, onProgress = n
     ...hosted,
     ...liveDevpost,
     ...liveUnstop,
+    ...staticList,
     ...VERIFIED_BASELINE_HACKATHONS
   ];
 
@@ -454,3 +355,4 @@ export async function fetchAllLiveHackathons(maxUnstopPages = 10, onProgress = n
 
   return deduplicated;
 }
+

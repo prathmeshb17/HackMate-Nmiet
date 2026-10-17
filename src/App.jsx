@@ -73,13 +73,16 @@ export default function App() {
     try {
       const hosted = getHostedHackathons();
       const saved = localStorage.getItem('hackmate_hackathons');
+      const map = new Map();
+      INITIAL_HACKATHONS.forEach(h => map.set(h.id, h));
       if (saved) {
         const parsed = JSON.parse(saved);
-        const ids = new Set(parsed.map(h => h.id));
-        const missingLive = INITIAL_HACKATHONS.filter(h => !ids.has(h.id));
-        return [...parsed, ...missingLive];
+        if (Array.isArray(parsed)) {
+          parsed.forEach(h => map.set(h.id, h));
+        }
       }
-      return [...hosted, ...INITIAL_HACKATHONS];
+      hosted.forEach(h => map.set(h.id, h));
+      return Array.from(map.values());
     } catch {
       return INITIAL_HACKATHONS;
     }
