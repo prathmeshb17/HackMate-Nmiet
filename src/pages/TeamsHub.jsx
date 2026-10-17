@@ -22,8 +22,10 @@ export default function TeamsHub({
   onOpenTeamChat,
   onSendJoinRequest,
   onOpenRegistrationPacket,
-  onNavigateToFindTeams
+  onNavigateToFindTeams,
+  openLoginModal
 }) {
+
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [selectedTeamToEdit, setSelectedTeamToEdit] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState(null);
@@ -38,6 +40,11 @@ export default function TeamsHub({
   });
 
   const handleOpenCreate = () => {
+    if (!currentStudent) {
+      if (openLoginModal) openLoginModal();
+      else alert('Please log in or sign up first!');
+      return;
+    }
     setSelectedTeamToEdit(null);
     setIsConfigModalOpen(true);
   };
@@ -66,7 +73,11 @@ export default function TeamsHub({
   };
 
   const handleRequestToJoin = (team) => {
-    if (!currentStudent) return alert('Please sign up first!');
+    if (!currentStudent) {
+      if (openLoginModal) openLoginModal();
+      else alert('Please log in or sign up first!');
+      return;
+    }
     if (team.members.includes(currentStudent.id)) return;
 
     onSendJoinRequest(team, currentStudent);
@@ -75,6 +86,7 @@ export default function TeamsHub({
       text: `Join request sent to ${team.name}'s leader! Awaiting approval in their Invites box.`
     });
   };
+
 
   return (
     <div className="space-y-6 animate-fadeIn font-sans">

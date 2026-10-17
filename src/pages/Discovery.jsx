@@ -14,8 +14,10 @@ export default function Discovery({
   selectedHackathonId,
   setSelectedHackathonId,
   onInviteStudent,
-  onSendJoinRequest
+  onSendJoinRequest,
+  openLoginModal
 }) {
+
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [topKCount, setTopKCount] = useState(5);
@@ -113,10 +115,15 @@ export default function Discovery({
   }, [teams, hackathons, currentStudent, searchQuery, userMode, selectedHackathonId]);
 
   const handleRequestJoin = (team) => {
-    if (!currentStudent) return alert('Please sign up first!');
+    if (!currentStudent) {
+      if (openLoginModal) openLoginModal();
+      else alert('Please log in or sign up first!');
+      return;
+    }
     onSendJoinRequest(team, currentStudent);
     setFeedbackMsg(`Join request sent to ${team.name}'s leader! Awaiting approval in their Invites box.`);
   };
+
 
   return (
     <div className="space-y-6 animate-fadeIn font-sans">

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Code2, UserPlus, Bell, Home, Search, ShieldCheck, Cpu } from 'lucide-react';
+import { Users, Code2, UserPlus, Bell, Home, Search, ShieldCheck, Cpu, LogIn, LogOut } from 'lucide-react';
 
 export default function Navbar({
   activeTab,
@@ -9,8 +9,11 @@ export default function Navbar({
   setCurrentStudentId,
   pendingNotifCount,
   openProfileModal,
-  openOnboardingModal
+  openOnboardingModal,
+  openLoginModal,
+  onLogout
 }) {
+
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-slate-200 shadow-sm font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -117,44 +120,67 @@ export default function Navbar({
           {/* 3. Clean Right Section */}
           <div className="flex items-center space-x-2 sm:space-x-3">
 
-            <button
-              onClick={openOnboardingModal}
-              className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 flex items-center gap-1.5 transition-all"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              Sign Up
-            </button>
-
-            {/* User Avatar & Selector (only shown if students exist) */}
-            {allStudents.length > 0 && (
-              <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                <select
-                  value={currentStudent.id}
-                  onChange={(e) => setCurrentStudentId(e.target.value)}
-                  className="bg-transparent text-slate-800 text-xs font-semibold rounded-lg px-2 py-0.5 border-none focus:outline-none max-w-[120px] truncate cursor-pointer"
-                >
-                  {allStudents.map(std => (
-                    <option key={std.id} value={std.id} className="bg-white text-slate-900">
-                      {std.name}
-                    </option>
-                  ))}
-                </select>
-
+            {!currentStudent ? (
+              /* GUEST MODE: Show Log In & Sign Up */
+              <div className="flex items-center space-x-2">
                 <button
+                  onClick={openLoginModal}
+                  className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 flex items-center gap-1.5 transition-all"
+                >
+                  <LogIn className="w-3.5 h-3.5 text-indigo-600" />
+                  Log In
+                </button>
+                <button
+                  onClick={openOnboardingModal}
+                  className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 flex items-center gap-1.5 transition-all"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  Sign Up
+                </button>
+              </div>
+            ) : (
+              /* LOGGED-IN MODE: Show Current User & Log Out */
+              <div className="flex items-center space-x-2">
+                <div
                   onClick={openProfileModal}
-                  title="Edit My Profile"
-                  className="hover:opacity-80 transition-opacity"
+                  className="flex items-center space-x-2 bg-slate-100 hover:bg-indigo-50 p-1 pr-3 rounded-xl border border-slate-200 hover:border-indigo-200 cursor-pointer transition-all group"
+                  title="Click to view & edit your profile"
                 >
                   <img
-                    src={currentStudent.avatar}
+                    src={currentStudent.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${currentStudent.name}`}
                     alt={currentStudent.name}
-                    className="w-7 h-7 rounded-lg object-cover ring-1 ring-slate-300"
+                    className="w-7 h-7 rounded-lg object-cover ring-1 ring-slate-300 group-hover:ring-indigo-400"
                   />
+                  <div className="text-left hidden sm:block max-w-[120px] truncate">
+                    <div className="text-xs font-bold text-slate-800 group-hover:text-indigo-600 transition-colors leading-tight truncate">
+                      {currentStudent.name}
+                    </div>
+                    <div className="text-[10px] text-slate-500 leading-tight truncate">
+                      {currentStudent.preferredRole || 'Hacker'}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={openLoginModal}
+                  title="Switch account on this device"
+                  className="hidden md:flex text-[11px] font-semibold text-slate-500 hover:text-indigo-600 px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors"
+                >
+                  Switch
+                </button>
+
+                <button
+                  onClick={onLogout}
+                  title="Log out of this device"
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
+                >
+                  <LogOut className="w-4 h-4" />
                 </button>
               </div>
             )}
 
           </div>
+
 
         </div>
       </div>

@@ -9,6 +9,7 @@ import { DisjointSet } from './dsa/unionFind.js';
 import Navbar from './components/Navbar.jsx';
 import ProfileModal from './components/ProfileModal.jsx';
 import OnboardingModal from './components/OnboardingModal.jsx';
+import LoginModal from './components/LoginModal.jsx';
 import TeamChatModal from './components/TeamChatModal.jsx';
 import HostHackathonModal from './components/HostHackathonModal.jsx';
 import InviteToTeamModal from './components/InviteToTeamModal.jsx';
@@ -124,6 +125,7 @@ export default function App() {
   // Modals
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isNewHackathonModalOpen, setIsNewHackathonModalOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteModalCandidate, setInviteModalCandidate] = useState(null);
@@ -141,11 +143,16 @@ export default function App() {
 
   useEffect(() => {
     try {
-      if (currentStudentId) localStorage.setItem('hackmate_current_student_id', currentStudentId);
+      if (currentStudentId) {
+        localStorage.setItem('hackmate_current_student_id', currentStudentId);
+      } else {
+        localStorage.removeItem('hackmate_current_student_id');
+      }
     } catch (e) {
       console.error(e);
     }
   }, [currentStudentId]);
+
 
   useEffect(() => {
     try {
@@ -187,12 +194,32 @@ export default function App() {
   const [autoSyncAlert, setAutoSyncAlert] = useState(null);
 
   const currentStudent = useMemo(() => {
-    if (students.length === 0) return null;
-    return students.find(item => item.id === currentStudentId) || students[0];
+    if (!currentStudentId || students.length === 0) return null;
+    return students.find(item => item.id === currentStudentId) || null;
   }, [students, currentStudentId]);
 
   const handleStudentSwitch = (id) => {
     setCurrentStudentId(id);
+    if (id) {
+      try { localStorage.setItem('hackmate_current_student_id', id); } catch (e) {}
+    } else {
+      try { localStorage.removeItem('hackmate_current_student_id'); } catch (e) {}
+    }
+  };
+
+  const handleLoginSuccess = (student) => {
+    setCurrentStudentId(student.id);
+    try {
+      localStorage.setItem('hackmate_current_student_id', student.id);
+    } catch (e) {}
+    confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+  };
+
+  const handleLogout = () => {
+    setCurrentStudentId(null);
+    try {
+      localStorage.removeItem('hackmate_current_student_id');
+    } catch (e) {}
   };
 
   // Instantiate Disjoint Set Union (DSU)
@@ -217,9 +244,13 @@ export default function App() {
   const handleRegisterNewStudent = (newStudent) => {
     setStudents(prev => [newStudent, ...prev]);
     setCurrentStudentId(newStudent.id);
+    try {
+      localStorage.setItem('hackmate_current_student_id', newStudent.id);
+    } catch (e) {}
     saveCloudStudent(newStudent);
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
   };
+
 
   const handleSaveProfile = (updatedStudent) => {
     setStudents(prev => prev.map(s => s.id === updatedStudent.id ? updatedStudent : s));
@@ -630,26 +661,31 @@ export default function App() {
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        currentStudent={activeStudentProfile}
+        currentStudent={currentStudent}
         allStudents={students}
         setCurrentStudentId={handleStudentSwitch}
         pendingNotifCount={pendingNotifCount}
         openProfileModal={() => setIsProfileModalOpen(true)}
         openOnboardingModal={() => setIsOnboardingOpen(true)}
+        openLoginModal={() => setIsLoginModalOpen(true)}
+        onLogout={handleLogout}
       />
+
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'dashboard' && (
           <Dashboard
             hackathons={hackathons}
-            currentStudent={activeStudentProfile}
+            currentStudent={currentStudent}
             teams={teams}
             allStudents={students}
             setActiveTab={setActiveTab}
             openNewHackathonModal={() => setIsNewHackathonModalOpen(true)}
             openOnboardingModal={() => setIsOnboardingOpen(true)}
+            openLoginModal={() => setIsLoginModalOpen(true)}
             setSelectedHackathonForMatch={setSelectedHackathonForMatch}
+
             onOpenTeamChat={handleOpenTeamChat}
             onRefreshLiveHackathons={() => handleQuickRefresh(false)}
             onDeepSyncAll={() => handleDeepSyncAll(10)}
@@ -667,7 +703,7 @@ export default function App() {
         {(activeTab === 'recruit' || activeTab === 'findTeams' || activeTab === 'discovery') && (
           <Discovery
             students={students}
-            currentStudent={activeStudentProfile}
+            currentStudent={currentStudent}
             teams={teams}
             hackathons={hackathons}
             userMode={activeTab === 'findTeams' ? 'OPEN_FOR_TEAM' : 'RECRUITING'}
@@ -675,6 +711,7 @@ export default function App() {
             setSelectedHackathonId={setSelectedHackathonForMatch}
             onInviteStudent={handleInviteStudent}
             onSendJoinRequest={handleSendJoinRequest}
+            openLoginModal={() => setIsLoginModalOpen(true)}
           />
         )}
 
@@ -683,7 +720,7 @@ export default function App() {
             teams={teams}
             students={students}
             hackathons={hackathons}
-            currentStudent={activeStudentProfile}
+            currentStudent={currentStudent}
             onCreateTeam={handleCreateTeam}
             onUpdateTeam={handleUpdateTeam}
             onJoinTeam={handleJoinTeam}
@@ -693,8 +730,10 @@ export default function App() {
             onSendJoinRequest={handleSendJoinRequest}
             onOpenRegistrationPacket={handleOpenRegistrationPacket}
             onNavigateToFindTeams={() => setActiveTab('findTeams')}
+            openLoginModal={() => setIsLoginModalOpen(true)}
           />
         )}
+
 
         {activeTab === 'invites' && (
           <NotificationsTab
@@ -736,6 +775,7 @@ export default function App() {
         onClose={() => setIsProfileModalOpen(false)}
         student={activeStudentProfile}
         onSave={handleSaveProfile}
+        onLogout={handleLogout}
       />
 
       {/* Onboarding Registration Modal */}
@@ -743,7 +783,24 @@ export default function App() {
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
         onRegisterSuccess={handleRegisterNewStudent}
+        onOpenLogin={() => {
+          setIsOnboardingOpen(false);
+          setIsLoginModalOpen(true);
+        }}
       />
+
+      {/* Device-Isolated Login Modal */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        allStudents={students}
+        onLoginSuccess={handleLoginSuccess}
+        onOpenSignUp={() => {
+          setIsLoginModalOpen(false);
+          setIsOnboardingOpen(true);
+        }}
+      />
+
 
       {/* Host Hackathon Modal */}
       <HostHackathonModal

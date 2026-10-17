@@ -9,9 +9,26 @@ export default function NotificationsTab({
   onAcceptInvite,
   onDeclineInvite
 }) {
+  if (!currentStudent) {
+    return (
+      <div className="space-y-6 animate-fadeIn font-sans">
+        <div className="bg-white p-8 sm:p-12 rounded-3xl border border-slate-200 shadow-md text-center max-w-md mx-auto my-12">
+          <div className="w-16 h-16 rounded-2xl bg-pink-50 border border-pink-200 text-pink-600 flex items-center justify-center mx-auto mb-4 shadow-sm">
+            <Bell className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-extrabold text-slate-900 mb-2">Log In to View Your Invites</h2>
+          <p className="text-xs text-slate-500 mb-6">
+            Log in on this device to check incoming squad invitations, recruitment requests, and approvals.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const [filter, setFilter] = useState('ALL');
 
   const myNotifications = notifications.filter(n => n.recipientId === currentStudent.id);
+
 
   const filteredNotifs = myNotifications.filter(n => {
     if (filter === 'ALL') return true;

@@ -14,7 +14,10 @@ export default function Dashboard({
   allStudents,
   setActiveTab,
   openNewHackathonModal,
+  openOnboardingModal,
+  openLoginModal,
   setSelectedHackathonForMatch,
+
   onOpenTeamChat,
   onRefreshLiveHackathons,
   onDeepSyncAll,
@@ -233,7 +236,30 @@ export default function Dashboard({
               Explore <strong>1,000+ live and upcoming hackathons</strong> continuously synced from <strong>Unstop</strong> ({totalUnstop.toLocaleString()} available), <strong>Devpost</strong>, <strong>Devfolio</strong>, and <strong>MLH</strong>.
               Register directly on their official portals with one click, or host your own community event.
             </p>
+
+            {!currentStudent && (
+              <div className="mt-3 p-3 bg-indigo-50/80 border border-indigo-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <span className="text-slate-700 font-medium">
+                  👋 <strong>Viewing as Guest on this Device:</strong> Log in to form squads, receive team invitations, and join live team chats.
+                </span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={openLoginModal}
+                    className="px-3 py-1 bg-white hover:bg-slate-50 text-indigo-700 font-bold rounded-lg border border-indigo-200 shadow-sm transition-all"
+                  >
+                    Log In
+                  </button>
+                  <button
+                    onClick={openOnboardingModal}
+                    className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-sm transition-all"
+                  >
+                    Sign Up
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
+
 
           <div className="flex flex-wrap items-center gap-2.5">
             <button

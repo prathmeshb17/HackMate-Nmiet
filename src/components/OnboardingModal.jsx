@@ -13,7 +13,7 @@ const AVAILABLE_ROLES = [
   { id: 'DevOps', name: 'DevOps & Cloud' }
 ];
 
-export default function OnboardingModal({ isOpen, onClose, onRegisterSuccess }) {
+export default function OnboardingModal({ isOpen, onClose, onRegisterSuccess, onOpenLogin }) {
   if (!isOpen) return null;
 
   const [step, setStep] = useState(1);
@@ -247,7 +247,17 @@ export default function OnboardingModal({ isOpen, onClose, onRegisterSuccess }) 
               </p>
             </div>
 
-            <div className="flex justify-end pt-4 border-t border-slate-100">
+            <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+              {onOpenLogin ? (
+                <button
+                  type="button"
+                  onClick={() => { onClose(); onOpenLogin(); }}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                >
+                  Already registered? Log In
+                </button>
+              ) : <div />}
+
               <button
                 type="button"
                 onClick={() => {
@@ -260,6 +270,7 @@ export default function OnboardingModal({ isOpen, onClose, onRegisterSuccess }) 
               </button>
             </div>
           </div>
+
         )}
 
         {/* STEP 2 */}
