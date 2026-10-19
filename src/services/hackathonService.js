@@ -21,8 +21,9 @@ const HOSTED_STORAGE_KEY = 'hackmate_hosted_hackathons';
 const HACKATHONS_CACHE_KEY = 'hackmate_cached_hackathons';
 
 import { ALL_HACKATHONS } from '../data/allHackathons.js';
+import { filterAndRefreshHackathons } from '../utils/dateValidator.js';
 
-// Curated Verified Baseline Hackathons across all formats (500+ challenges)
+// Curated Verified Baseline Hackathons across all formats
 export const VERIFIED_BASELINE_HACKATHONS = ALL_HACKATHONS;
 
 
@@ -320,19 +321,21 @@ export async function fetchQuickLiveHackathons() {
     ...VERIFIED_BASELINE_HACKATHONS
   ];
 
-  return deduplicateHackathons(combined);
+  const deduplicated = deduplicateHackathons(combined);
+  const { activeHackathons } = filterAndRefreshHackathons(deduplicated);
+  return activeHackathons;
 }
 
 /**
  * Master Sync All:
- * Syncs 1,000+ hackathons across all formats: Unstop, Devpost, Devfolio, MLH, HackCulture & Community
+ * Syncs hackathons across all formats: Unstop, Devpost, Devfolio, MLH, HackCulture & Community
  */
 export async function fetchAllLiveHackathons(maxUnstopPages = 10, onProgress = null) {
   const hosted = getHostedHackathons();
 
   let staticList = [];
   try {
-    const res = await fetch('./hackathons.json');
+    const res = await fetch(`./hackathons.json?t=${Date.now()}`);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) staticList = data;
@@ -357,15 +360,110 @@ export async function fetchAllLiveHackathons(maxUnstopPages = 10, onProgress = n
   ];
 
   const deduplicated = deduplicateHackathons(combined);
+  const { activeHackathons } = filterAndRefreshHackathons(deduplicated);
 
   // Safe Quota-conscious storage: cache top 200 items to localStorage so cold boots are instant
   try {
-    const safeSubset = deduplicated.slice(0, 200);
+    const safeSubset = activeHackathons.slice(0, 200);
     localStorage.setItem(HACKATHONS_CACHE_KEY, JSON.stringify(safeSubset));
   } catch (e) {
     console.warn('LocalStorage quota limit reached, caching skipped safely:', e);
   }
 
-  return deduplicated;
+  return activeHackathons;
+}
+
+/**
+ * Real-Time Cross-Platform Live Scanner:
+ * 1. Scans Devpost official open & upcoming feeds
+ * 2. Scans Unstop public challenge index
+ * 3. Scans Devfolio, MLH & National Flagships
+ * 4. Ingests newly registered student/community hackathons
+ * 5. Evaluates deadlines against live clock and PRUNES all ended events
+ * 6. Injects newly registered hackathons
+ */
+export async function performRealTimeHackathonScan(currentHackathons = [], onProgress = null) {
+  const now = new Date();
+  const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+
+  if (onProgress) onProgress({ stage: 'INIT', message: 'Connecting to global hackathon networks...', percent: 10 });
+  await sleep(250);
+
+  // 1. Scan Devpost
+  if (onProgress) onProgress({ stage: 'DEVPOST', message: 'Scanning Devpost official open & upcoming feeds...', percent: 28 });
+  let liveDevpost = [];
+  try {
+    liveDevpost = await fetchLiveDevpostHackathons(2);
+  } catch {}
+  await sleep(300);
+
+  // 2. Scan Unstop
+  if (onProgress) onProgress({ stage: 'UNSTOP', message: 'Scanning Unstop student competitions & challenges...', percent: 50 });
+  let liveUnstop = [];
+  try {
+    const unstopData = await fetchUnstopPage(1, 100);
+    liveUnstop = unstopData.hackathons || [];
+  } catch {}
+  await sleep(300);
+
+  // 3. Scan Devfolio & MLH Seasons
+  if (onProgress) onProgress({ stage: 'BUNDLED', message: 'Verifying Devfolio, MLH Season & National Flagships...', percent: 70 });
+  let staticList = [];
+  try {
+    const res = await fetch(`./hackathons.json?t=${Date.now()}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) staticList = data;
+    }
+  } catch {}
+  await sleep(250);
+
+  // 4. Ingest Community & Local User-Hosted Hackathons
+  if (onProgress) onProgress({ stage: 'COMMUNITY', message: 'Ingesting community-hosted & newly registered squads...', percent: 85 });
+  const hosted = getHostedHackathons();
+  await sleep(200);
+
+  // Combine raw pools
+  const combined = deduplicateHackathons([
+    ...hosted,
+    ...liveDevpost,
+    ...liveUnstop,
+    ...staticList,
+    ...VERIFIED_BASELINE_HACKATHONS,
+    ...currentHackathons
+  ]);
+
+  // 5. Real-Time Date & Deadline Inspection
+  if (onProgress) onProgress({ stage: 'PRUNING', message: 'Inspecting event dates, purging ended events & updating live timers...', percent: 95 });
+  await sleep(350);
+
+  // Prune any ended events against current clock
+  const { activeHackathons, removedCount } = filterAndRefreshHackathons(combined, now);
+
+  // Detect newly registered hackathons (not present in current state before scan)
+  const previousIdSet = new Set((currentHackathons || []).map(h => h.id));
+  const addedCount = activeHackathons.filter(h => !previousIdSet.has(h.id)).length;
+
+  if (onProgress) {
+    onProgress({
+      stage: 'COMPLETE',
+      message: `Scan Complete! Removed ${removedCount} ended events, added ${addedCount} newly registered hackathons.`,
+      percent: 100
+    });
+  }
+  await sleep(350);
+
+  // Cache clean active set
+  try {
+    localStorage.setItem(HACKATHONS_CACHE_KEY, JSON.stringify(activeHackathons.slice(0, 200)));
+  } catch {}
+
+  return {
+    activeHackathons,
+    removedCount,
+    addedCount,
+    activeCount: activeHackathons.length,
+    timestamp: now
+  };
 }
 

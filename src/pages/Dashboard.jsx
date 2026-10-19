@@ -266,10 +266,10 @@ export default function Dashboard({
               onClick={onDeepSyncAll}
               disabled={isDeepSyncing}
               className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold text-xs border border-slate-700 flex items-center gap-1.5 shadow-md shadow-indigo-950/20 transition-all active:scale-95 disabled:opacity-60"
-              title="Sync 1,000+ hackathons across all 10 pages of Unstop and Devpost"
+              title="Real-time scan: check dates, remove ended events, and add newly registered hackathons"
             >
               <Sparkles className={`w-4 h-4 text-amber-400 ${isDeepSyncing ? 'animate-spin' : ''}`} />
-              <span>{isDeepSyncing ? 'Syncing 1,000+...' : 'Sync All (1,000+)'}</span>
+              <span>{isDeepSyncing ? 'Scanning Live...' : 'Real-Time Sync'}</span>
             </button>
 
             <button
@@ -366,10 +366,10 @@ export default function Dashboard({
               onClick={handleSyncClick}
               disabled={isRefreshingLive}
               className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
-              title="Refresh live hackathon feeds from online sources"
+              title="Real-time scan to check dates, remove ended hackathons and add newly registered events"
             >
               <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${isRefreshingLive ? 'animate-spin' : ''}`} />
-              {isRefreshingLive ? 'Syncing...' : 'Sync Now'}
+              <span>{isRefreshingLive ? 'Scanning...' : 'Sync & Check Dates'}</span>
             </button>
 
             <button

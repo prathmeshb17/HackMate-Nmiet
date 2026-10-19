@@ -14,6 +14,7 @@ import TeamChatModal from './components/TeamChatModal.jsx';
 import HostHackathonModal from './components/HostHackathonModal.jsx';
 import InviteToTeamModal from './components/InviteToTeamModal.jsx';
 import SquadRegistrationPacketModal from './components/SquadRegistrationPacketModal.jsx';
+import RealTimeScanModal from './components/RealTimeScanModal.jsx';
 
 import Dashboard from './pages/Dashboard.jsx';
 import Discovery from './pages/Discovery.jsx';
@@ -24,11 +25,13 @@ import NotificationsTab from './pages/NotificationsTab.jsx';
 import {
   fetchAllLiveHackathons,
   fetchQuickLiveHackathons,
+  performRealTimeHackathonScan,
   saveHostedHackathon,
   getHostedHackathons,
   TOTAL_UNSTOP_OPPORTUNITIES,
   TOTAL_DEVPOST_OPPORTUNITIES
 } from './services/hackathonService.js';
+import { filterAndRefreshHackathons } from './utils/dateValidator.js';
 import {
   isSupabaseConfigured,
   getCloudStudents,
@@ -138,6 +141,10 @@ export default function App() {
   const [inviteModalCandidate, setInviteModalCandidate] = useState(null);
   const [registrationPacketTeam, setRegistrationPacketTeam] = useState(null);
   const [isRegistrationPacketOpen, setIsRegistrationPacketOpen] = useState(false);
+  const [isRealTimeScanModalOpen, setIsRealTimeScanModalOpen] = useState(false);
+  const [isScanningLive, setIsScanningLive] = useState(false);
+  const [scanProgress, setScanProgress] = useState(null);
+  const [scanReport, setScanReport] = useState(null);
 
   // Persist state changes to LocalStorage
   useEffect(() => {
@@ -271,24 +278,50 @@ export default function App() {
     confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 } });
   };
 
+  const handleRealTimeSync = async () => {
+    setIsRealTimeScanModalOpen(true);
+    setIsScanningLive(true);
+    setScanReport(null);
+    setScanProgress({ stage: 'INIT', message: 'Connecting to global hackathon networks...', percent: 10 });
+
+    try {
+      const result = await performRealTimeHackathonScan(hackathons, (progress) => {
+        setScanProgress(progress);
+      });
+
+      setHackathons(result.activeHackathons);
+      setLastSyncedTime(result.timestamp);
+      setScanReport(result);
+
+      try {
+        localStorage.setItem('hackmate_hackathons', JSON.stringify(result.activeHackathons.slice(0, 200)));
+      } catch (e) {
+        console.warn('LocalStorage caching skipped:', e);
+      }
+
+      if (result.removedCount > 0 || result.addedCount > 0) {
+        setAutoSyncAlert(`⚡ Real-Time Scan: Removed ${result.removedCount} ended events • Added ${result.addedCount} newly registered hackathons!`);
+        setTimeout(() => setAutoSyncAlert(null), 8000);
+      }
+    } catch (err) {
+      console.error('Real-time scan error:', err);
+    } finally {
+      setIsScanningLive(false);
+    }
+  };
+
   const handleQuickRefresh = async (isSilent = false) => {
     if (!isSilent) setIsRefreshingLive(true);
     try {
       const quickData = await fetchQuickLiveHackathons();
       if (Array.isArray(quickData) && quickData.length > 0) {
         setHackathons(prev => {
-          const prevMap = new Map(prev.map(h => [h.id, h]));
-          let newAdded = 0;
-          quickData.forEach(h => {
-            if (!prevMap.has(h.id)) newAdded++;
-            prevMap.set(h.id, h);
-          });
-
-          if (newAdded > 0 && prev.length > 0 && isSilent) {
-            setAutoSyncAlert(`🎉 Continuous Sync: ${newAdded} new live hackathons detected & updated!`);
-            setTimeout(() => setAutoSyncAlert(null), 8000);
+          const { activeHackathons, removedCount } = filterAndRefreshHackathons([...quickData, ...prev]);
+          const prevMap = new Map(activeHackathons.map(h => [h.id, h]));
+          
+          if (isSilent && removedCount > 0) {
+            console.log(`Auto-pruned ${removedCount} ended hackathons silently.`);
           }
-
           return Array.from(prevMap.values());
         });
         setLastSyncedTime(new Date());
@@ -300,36 +333,7 @@ export default function App() {
     }
   };
 
-  const handleDeepSyncAll = async (targetPages = 10) => {
-    setIsDeepSyncing(true);
-    setDeepSyncProgress({
-      currentCount: hackathons.length,
-      status: `Connecting to Unstop (6,788 available) & Devpost (194 active)...`
-    });
-
-    try {
-      const fullData = await fetchAllLiveHackathons(targetPages, (progress) => {
-        setDeepSyncProgress({
-          currentCount: progress.currentCount,
-          currentPage: progress.currentPage,
-          maxPages: progress.maxPages,
-          status: `Streaming Unstop page ${progress.currentPage} of ${progress.maxPages} (${progress.currentCount} hackathons synced)...`
-        });
-      });
-
-      if (Array.isArray(fullData) && fullData.length > 0) {
-        setHackathons(fullData);
-        setLastSyncedTime(new Date());
-        setAutoSyncAlert(`🚀 1,000+ Hackathons Synced! Successfully aggregated ${fullData.length} challenges from Unstop, Devpost & community.`);
-        setTimeout(() => setAutoSyncAlert(null), 10000);
-      }
-    } catch (e) {
-      console.error('Deep sync failed:', e);
-    } finally {
-      setIsDeepSyncing(false);
-      setDeepSyncProgress(null);
-    }
-  };
+  const handleDeepSyncAll = handleRealTimeSync;
 
   // Continuous background polling & progressive hydration
   useEffect(() => {
@@ -694,11 +698,11 @@ export default function App() {
             setSelectedHackathonForMatch={setSelectedHackathonForMatch}
 
             onOpenTeamChat={handleOpenTeamChat}
-            onRefreshLiveHackathons={() => handleQuickRefresh(false)}
-            onDeepSyncAll={() => handleDeepSyncAll(10)}
-            isRefreshingLive={isRefreshingLive}
-            isDeepSyncing={isDeepSyncing}
-            deepSyncProgress={deepSyncProgress}
+            onRefreshLiveHackathons={handleRealTimeSync}
+            onDeepSyncAll={handleRealTimeSync}
+            isRefreshingLive={isScanningLive}
+            isDeepSyncing={isScanningLive}
+            deepSyncProgress={scanProgress}
             totalUnstop={TOTAL_UNSTOP_OPPORTUNITIES}
             totalDevpost={TOTAL_DEVPOST_OPPORTUNITIES}
             lastSyncedTime={lastSyncedTime}
@@ -845,6 +849,15 @@ export default function App() {
           onUpdateTeam={handleUpdateTeam}
         />
       )}
+
+      {/* Real-Time Live Multi-Platform Scanner Modal */}
+      <RealTimeScanModal
+        isOpen={isRealTimeScanModalOpen}
+        onClose={() => setIsRealTimeScanModalOpen(false)}
+        isScanning={isScanningLive}
+        scanProgress={scanProgress}
+        scanReport={scanReport}
+      />
 
     </div>
   );
