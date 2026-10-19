@@ -66,7 +66,7 @@ export default function RealTimeScanModal({
             REAL-TIME DATA ENGINE
           </div>
 
-          <h2 className="text-2xl font-black tracking-tight flex items-center gap-2.5">
+          <h2 className="text-2xl font-black tracking-tight flex items-center gap-2.5 font-display">
             {isScanning ? (
               <>
                 <RefreshCw className="w-5 h-5 text-amber-400 animate-spin" />
@@ -166,7 +166,7 @@ export default function RealTimeScanModal({
 
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-white/80 p-2.5 rounded-xl border border-emerald-100">
-                  <div className="text-lg font-black text-rose-600">
+                  <div className="text-xl font-display font-black text-rose-600">
                     {scanReport.removedCount}
                   </div>
                   <div className="text-[10px] font-bold text-slate-600">
@@ -175,7 +175,7 @@ export default function RealTimeScanModal({
                 </div>
 
                 <div className="bg-white/80 p-2.5 rounded-xl border border-emerald-100">
-                  <div className="text-lg font-black text-indigo-600">
+                  <div className="text-xl font-display font-black text-indigo-600">
                     +{scanReport.addedCount}
                   </div>
                   <div className="text-[10px] font-bold text-slate-600">
@@ -184,7 +184,7 @@ export default function RealTimeScanModal({
                 </div>
 
                 <div className="bg-white/80 p-2.5 rounded-xl border border-emerald-100">
-                  <div className="text-lg font-black text-emerald-600">
+                  <div className="text-xl font-display font-black text-emerald-600">
                     {scanReport.activeCount}
                   </div>
                   <div className="text-[10px] font-bold text-slate-600">

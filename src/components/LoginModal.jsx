@@ -118,7 +118,7 @@ export default function LoginModal({
             <Shield className="w-3.5 h-3.5 text-indigo-600" />
             DEVICE LOGIN & AUTH
           </div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Log In to HackMate</h2>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight font-display">Log In to HackMate</h2>
           <p className="text-xs text-slate-500 mt-1">
             Access your squads, live chats, and registration packets on this device.
           </p>

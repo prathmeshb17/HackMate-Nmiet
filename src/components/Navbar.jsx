@@ -40,8 +40,11 @@ export default function Navbar({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-lg font-extrabold tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">
+              <span className="text-xl font-black tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors font-display">
                 HackMate
+              </span>
+              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full font-mono">
+                NMIET
               </span>
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="System Online"></span>
             </div>
