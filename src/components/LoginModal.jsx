@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X, Mail, User, LogIn, ArrowRight, CheckCircle2,
-  Shield, Search, Lock, Eye, EyeOff, AlertCircle, Loader2, Users
+  Shield, Search, Lock, Eye, EyeOff, AlertCircle, Loader2, Users, Trash2
 } from 'lucide-react';
 import { hashPassword, findCloudStudent } from '../services/supabaseClient.js';
 
@@ -9,12 +9,16 @@ export default function LoginModal({
   isOpen,
   onClose,
   allStudents = [],
+  myCreatedProfileIds = [],
+  currentStudent = null,
+  initialTab = 'direct',
   onLoginSuccess,
-  onOpenSignUp
+  onOpenSignUp,
+  onRemoveProfileFromDevice
 }) {
   if (!isOpen) return null;
 
-  const [activeTab, setActiveTab] = useState('direct'); // 'direct' | 'picker'
+  const [activeTab, setActiveTab] = useState(initialTab); // 'direct' | 'picker'
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -25,6 +29,41 @@ export default function LoginModal({
 
   // Search in account picker
   const [accountSearch, setAccountSearch] = useState('');
+
+  // Reset tab and messages when opened with a specific initialTab
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+      setErrorMsg('');
+      setSuccessMsg('');
+    }
+  }, [isOpen, initialTab]);
+
+  // Compute ONLY the profiles created or authorized on this device
+  const myCreatedStudents = useMemo(() => {
+    const idSet = new Set(myCreatedProfileIds || []);
+    if (currentStudent && currentStudent.id) {
+      idSet.add(currentStudent.id);
+    }
+    const matched = allStudents.filter(s => idSet.has(s.id));
+
+    // Fallback: check localStorage for any locally saved student data if Supabase sync is pending
+    try {
+      const localSaved = localStorage.getItem('hackmate_students');
+      if (localSaved) {
+        const parsed = JSON.parse(localSaved);
+        if (Array.isArray(parsed)) {
+          parsed.forEach(s => {
+            if (idSet.has(s.id) && !matched.some(m => m.id === s.id)) {
+              matched.push(s);
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    return matched;
+  }, [allStudents, myCreatedProfileIds, currentStudent]);
 
   const handleDirectLogin = async (e) => {
     e.preventDefault();
@@ -90,7 +129,7 @@ export default function LoginModal({
     }
   };
 
-  const filteredAccounts = allStudents.filter(s => {
+  const filteredAccounts = myCreatedStudents.filter(s => {
     if (!accountSearch.trim()) return true;
     const q = accountSearch.toLowerCase();
     return (
@@ -118,9 +157,13 @@ export default function LoginModal({
             <Shield className="w-3.5 h-3.5 text-indigo-600" />
             DEVICE LOGIN & AUTH
           </div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight font-display">Log In to HackMate</h2>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight font-display">
+            {activeTab === 'picker' ? 'Switch Profile' : 'Log In to HackMate'}
+          </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Access your squads, live chats, and registration packets on this device.
+            {activeTab === 'picker'
+              ? 'Switch between profiles you have created on this device.'
+              : 'Access your squads, live chats, and registration packets on this device.'}
           </p>
 
           {/* Navigation Tabs */}
@@ -128,26 +171,26 @@ export default function LoginModal({
             <button
               type="button"
               onClick={() => { setActiveTab('direct'); setErrorMsg(''); setSuccessMsg(''); }}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === 'direct'
                   ? 'bg-white text-indigo-700 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Lock className="w-3.5 h-3.5" />
-              Password Login
+              <span>Password Login</span>
             </button>
             <button
               type="button"
               onClick={() => { setActiveTab('picker'); setErrorMsg(''); setSuccessMsg(''); }}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === 'picker'
                   ? 'bg-white text-indigo-700 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Users className="w-3.5 h-3.5" />
-              Profiles ({allStudents.length})
+              <span>Switch Profile ({myCreatedStudents.length})</span>
             </button>
           </div>
         </div>
@@ -259,58 +302,154 @@ export default function LoginModal({
             </form>
           )}
 
-          {/* TAB 2: Registered Profile Picker */}
+          {/* TAB 2: Switch Profile (ONLY Profiles Created / Authorized on This Device) */}
           {activeTab === 'picker' && (
             <div className="space-y-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search profiles by name, username, email..."
-                  value={accountSearch}
-                  onChange={(e) => setAccountSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
+              {myCreatedStudents.length > 1 && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search your created profiles..."
+                    value={accountSearch}
+                    onChange={(e) => setAccountSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              )}
 
-              <div className="max-h-64 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                {filteredAccounts.length === 0 ? (
+              <div className="max-h-72 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
+                {myCreatedStudents.length === 0 ? (
+                  <div className="text-center py-7 px-4 bg-slate-50/80 rounded-2xl border border-dashed border-slate-200 space-y-3">
+                    <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto border border-indigo-100">
+                      <Shield className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 font-display">No Profiles Created on This Device</h4>
+                      <p className="text-[11px] text-slate-500 mt-1 max-w-xs mx-auto leading-relaxed">
+                        For your account privacy, only profiles created by you on this device appear here. To log in to an existing account, use Password Login.
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('direct')}
+                        className="px-3 py-1.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 shadow-sm transition-all"
+                      >
+                        Use Password Login
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { onClose(); onOpenSignUp(); }}
+                        className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition-all"
+                      >
+                        Create New Profile
+                      </button>
+                    </div>
+                  </div>
+                ) : filteredAccounts.length === 0 ? (
                   <p className="text-center py-6 text-xs text-slate-400 font-medium">
-                    No registered profiles found.
+                    No matching profile found in your created profiles.
                   </p>
                 ) : (
-                  filteredAccounts.map(student => (
-                    <div
-                      key={student.id}
-                      onClick={() => {
-                        onLoginSuccess(student);
-                        onClose();
-                      }}
-                      className="p-3 rounded-2xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/50 cursor-pointer flex items-center justify-between transition-all group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={student.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${student.name}`}
-                          alt={student.name}
-                          className="w-9 h-9 rounded-xl object-cover ring-1 ring-slate-200"
-                        />
-                        <div>
-                          <div className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                            {student.name}
-                          </div>
-                          <div className="text-[10px] text-slate-500 font-mono">
-                            @{student.username || student.email?.split('@')[0] || 'student'} • {student.college || 'Engineering'}
+                  filteredAccounts.map(student => {
+                    const isActive = currentStudent && currentStudent.id === student.id;
+                    return (
+                      <div
+                        key={student.id}
+                        className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                          isActive
+                            ? 'bg-indigo-50/70 border-indigo-300 ring-1 ring-indigo-300 shadow-sm'
+                            : 'bg-white border-slate-200 hover:border-indigo-300 hover:bg-slate-50/80'
+                        }`}
+                      >
+                        <div
+                          onClick={() => {
+                            if (!isActive) {
+                              onLoginSuccess(student);
+                              onClose();
+                            }
+                          }}
+                          className={`flex items-center gap-3 flex-1 min-w-0 ${isActive ? '' : 'cursor-pointer group'}`}
+                        >
+                          <img
+                            src={student.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${student.name}`}
+                            alt={student.name}
+                            className="w-10 h-10 rounded-xl object-cover ring-1 ring-slate-200 flex-shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors truncate font-display">
+                                {student.name}
+                              </span>
+                              {isActive && (
+                                <span className="text-[9px] font-mono font-bold bg-indigo-600 text-white px-1.5 py-0.2 rounded-full uppercase">
+                                  Current
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-mono truncate">
+                              @{student.username || student.email?.split('@')[0] || 'student'} • {student.college || 'Engineering'}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1.5 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                        Select
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {isActive ? (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg flex items-center gap-1 font-mono">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              Active
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onLoginSuccess(student);
+                                onClose();
+                              }}
+                              className="text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-600 hover:text-white border border-indigo-200 px-2.5 py-1 rounded-lg transition-all active:scale-95 font-display"
+                            >
+                              Switch →
+                            </button>
+                          )}
+
+                          {onRemoveProfileFromDevice && (
+                            <button
+                              type="button"
+                              onClick={() => onRemoveProfileFromDevice(student.id)}
+                              title="Remove profile from this device"
+                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
+
+              {/* Action buttons inside picker */}
+              {myCreatedStudents.length > 0 && (
+                <div className="pt-2 flex items-center justify-between text-xs border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('direct')}
+                    className="text-slate-600 hover:text-indigo-600 font-medium text-[11px] flex items-center gap-1"
+                  >
+                    <Lock className="w-3 h-3" />
+                    Log In to Another Account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { onClose(); onOpenSignUp(); }}
+                    className="font-bold text-indigo-600 hover:text-indigo-800 text-[11px] flex items-center gap-1"
+                  >
+                    + Create New Profile
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

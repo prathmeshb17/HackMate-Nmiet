@@ -136,6 +136,7 @@ export default function App() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [loginModalTab, setLoginModalTab] = useState('direct'); // 'direct' | 'picker'
   const [isNewHackathonModalOpen, setIsNewHackathonModalOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteModalCandidate, setInviteModalCandidate] = useState(null);
@@ -145,6 +146,49 @@ export default function App() {
   const [isScanningLive, setIsScanningLive] = useState(false);
   const [scanProgress, setScanProgress] = useState(null);
   const [scanReport, setScanReport] = useState(null);
+
+  // Track profiles created or authorized on this device
+  const [myCreatedProfileIds, setMyCreatedProfileIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hackmate_my_created_profile_ids');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+      const initialIds = [];
+      const currentId = localStorage.getItem('hackmate_current_student_id');
+      if (currentId && !currentId.startsWith('s-alex') && !currentId.startsWith('s-priya') && !currentId.startsWith('s-marcus') && !currentId.startsWith('s-sofia') && !currentId.startsWith('s-david') && !currentId.startsWith('s-elena')) {
+        initialIds.push(currentId);
+      }
+      const localStudentsRaw = localStorage.getItem('hackmate_students');
+      if (localStudentsRaw) {
+        const localStudents = JSON.parse(localStudentsRaw);
+        if (Array.isArray(localStudents)) {
+          localStudents.forEach(s => {
+            if (s.id && s.id.startsWith('std-') && !initialIds.includes(s.id)) {
+              initialIds.push(s.id);
+            }
+          });
+        }
+      }
+      return initialIds;
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('hackmate_my_created_profile_ids', JSON.stringify(myCreatedProfileIds));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [myCreatedProfileIds]);
+
+  const handleOpenLoginModal = (tab = 'direct') => {
+    setLoginModalTab(tab);
+    setIsLoginModalOpen(true);
+  };
 
   // Persist state changes to LocalStorage
   useEffect(() => {
@@ -223,6 +267,11 @@ export default function App() {
 
   const handleLoginSuccess = (student) => {
     setCurrentStudentId(student.id);
+    setMyCreatedProfileIds(prev => {
+      const updated = prev.includes(student.id) ? prev : [student.id, ...prev];
+      try { localStorage.setItem('hackmate_my_created_profile_ids', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
     try {
       localStorage.setItem('hackmate_current_student_id', student.id);
     } catch (e) {}
@@ -234,6 +283,18 @@ export default function App() {
     try {
       localStorage.removeItem('hackmate_current_student_id');
     } catch (e) {}
+  };
+
+  const handleRemoveProfileFromDevice = (idToRemove) => {
+    setMyCreatedProfileIds(prev => {
+      const updated = prev.filter(id => id !== idToRemove);
+      try { localStorage.setItem('hackmate_my_created_profile_ids', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
+    if (currentStudentId === idToRemove) {
+      setCurrentStudentId(null);
+      try { localStorage.removeItem('hackmate_current_student_id'); } catch (e) {}
+    }
   };
 
   // Instantiate Disjoint Set Union (DSU)
@@ -258,6 +319,11 @@ export default function App() {
   const handleRegisterNewStudent = (newStudent) => {
     setStudents(prev => [newStudent, ...prev]);
     setCurrentStudentId(newStudent.id);
+    setMyCreatedProfileIds(prev => {
+      const updated = prev.includes(newStudent.id) ? prev : [newStudent.id, ...prev];
+      try { localStorage.setItem('hackmate_my_created_profile_ids', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
     try {
       localStorage.setItem('hackmate_current_student_id', newStudent.id);
     } catch (e) {}
@@ -678,7 +744,7 @@ export default function App() {
         pendingNotifCount={pendingNotifCount}
         openProfileModal={() => setIsProfileModalOpen(true)}
         openOnboardingModal={() => setIsOnboardingOpen(true)}
-        openLoginModal={() => setIsLoginModalOpen(true)}
+        openLoginModal={handleOpenLoginModal}
         onLogout={handleLogout}
       />
 
@@ -694,7 +760,7 @@ export default function App() {
             setActiveTab={setActiveTab}
             openNewHackathonModal={() => setIsNewHackathonModalOpen(true)}
             openOnboardingModal={() => setIsOnboardingOpen(true)}
-            openLoginModal={() => setIsLoginModalOpen(true)}
+            openLoginModal={() => handleOpenLoginModal('direct')}
             setSelectedHackathonForMatch={setSelectedHackathonForMatch}
 
             onOpenTeamChat={handleOpenTeamChat}
@@ -722,7 +788,7 @@ export default function App() {
             setSelectedHackathonId={setSelectedHackathonForMatch}
             onInviteStudent={handleInviteStudent}
             onSendJoinRequest={handleSendJoinRequest}
-            openLoginModal={() => setIsLoginModalOpen(true)}
+            openLoginModal={() => handleOpenLoginModal('direct')}
           />
         )}
 
@@ -741,7 +807,7 @@ export default function App() {
             onSendJoinRequest={handleSendJoinRequest}
             onOpenRegistrationPacket={handleOpenRegistrationPacket}
             onNavigateToFindTeams={() => setActiveTab('findTeams')}
-            openLoginModal={() => setIsLoginModalOpen(true)}
+            openLoginModal={() => handleOpenLoginModal('direct')}
           />
         )}
 
@@ -787,6 +853,7 @@ export default function App() {
         student={activeStudentProfile}
         onSave={handleSaveProfile}
         onLogout={handleLogout}
+        onSwitchProfile={() => handleOpenLoginModal('picker')}
       />
 
       {/* Onboarding Registration Modal */}
@@ -796,16 +863,20 @@ export default function App() {
         onRegisterSuccess={handleRegisterNewStudent}
         onOpenLogin={() => {
           setIsOnboardingOpen(false);
-          setIsLoginModalOpen(true);
+          handleOpenLoginModal('direct');
         }}
       />
 
-      {/* Device-Isolated Login Modal */}
+      {/* Device-Isolated Login & Switch Profile Modal */}
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
         allStudents={students}
+        myCreatedProfileIds={myCreatedProfileIds}
+        currentStudent={currentStudent}
+        initialTab={loginModalTab}
         onLoginSuccess={handleLoginSuccess}
+        onRemoveProfileFromDevice={handleRemoveProfileFromDevice}
         onOpenSignUp={() => {
           setIsLoginModalOpen(false);
           setIsOnboardingOpen(true);

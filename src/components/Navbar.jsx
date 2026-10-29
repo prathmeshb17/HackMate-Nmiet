@@ -86,7 +86,7 @@ export default function Navbar({
               /* GUEST MODE: Show Log In & Sign Up */
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={openLoginModal}
+                  onClick={() => openLoginModal('direct')}
                   className="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 flex items-center gap-1.5 transition-all"
                 >
                   <LogIn className="w-3.5 h-3.5 text-indigo-600" />
@@ -124,11 +124,12 @@ export default function Navbar({
                 </div>
 
                 <button
-                  onClick={openLoginModal}
-                  title="Switch account on this device"
-                  className="hidden md:flex text-[11px] font-semibold text-slate-500 hover:text-indigo-600 px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors"
+                  onClick={() => openLoginModal('picker')}
+                  title="Switch profile on this device"
+                  className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-indigo-600 px-2.5 py-1.5 rounded-xl hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 transition-all font-display"
                 >
-                  Switch
+                  <Users className="w-3 h-3 text-indigo-600" />
+                  <span>Switch</span>
                 </button>
 
                 <button

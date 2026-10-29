@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Sparkles, Check, Code, User, CheckSquare, Square, Mail, GraduationCap, Phone, FileText, Link2 } from 'lucide-react';
+import { X, Plus, Sparkles, Check, Code, User, Users, CheckSquare, Square, Mail, GraduationCap, Phone, FileText, Link2 } from 'lucide-react';
 import { GithubIcon, LinkedinIcon } from './BrandIcons.jsx';
 import { SkillTrie } from '../dsa/trie.js';
 import { ALL_PREDEFINED_SKILLS } from '../data/initialStudents.js';
@@ -13,7 +13,7 @@ const AVAILABLE_ROLES = [
   { id: 'DevOps', name: 'DevOps & Cloud' }
 ];
 
-export default function ProfileModal({ isOpen, onClose, student, onSave, onLogout }) {
+export default function ProfileModal({ isOpen, onClose, student, onSave, onLogout, onSwitchProfile }) {
   if (!isOpen || !student) return null;
 
   const [formData, setFormData] = useState({
@@ -390,17 +390,29 @@ export default function ProfileModal({ isOpen, onClose, student, onSave, onLogou
             </div>
           </div>
 
-          {/* Submit & Logout */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
-            {onLogout ? (
-              <button
-                type="button"
-                onClick={() => { onLogout(); onClose(); }}
-                className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors flex items-center gap-1.5"
-              >
-                Log Out of This Device
-              </button>
-            ) : <div />}
+          {/* Submit & Logout & Switch Profile */}
+          <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              {onLogout && (
+                <button
+                  type="button"
+                  onClick={() => { onLogout(); onClose(); }}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors flex items-center gap-1.5"
+                >
+                  Log Out
+                </button>
+              )}
+              {onSwitchProfile && (
+                <button
+                  type="button"
+                  onClick={() => { onClose(); onSwitchProfile(); }}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border border-indigo-200 transition-colors flex items-center gap-1.5"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  Switch Profile
+                </button>
+              )}
+            </div>
 
             <div className="flex gap-2">
               <button
