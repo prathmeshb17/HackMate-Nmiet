@@ -250,6 +250,12 @@ export default function App() {
   const [deepSyncProgress, setDeepSyncProgress] = useState(null);
   const [lastSyncedTime, setLastSyncedTime] = useState(() => new Date());
   const [autoSyncAlert, setAutoSyncAlert] = useState(null);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToastMessage({ message, type });
+    setTimeout(() => setToastMessage(null), 5000);
+  };
 
   const currentStudent = useMemo(() => {
     if (!currentStudentId || students.length === 0) return null;
@@ -617,18 +623,11 @@ export default function App() {
 
   const handleInviteStudent = (candidateStudent) => {
     if (!currentStudent) {
-      setIsOnboardingOpen(true);
-      return alert('Please sign up or complete your profile first to send recruitment invites!');
-    }
-
-    const myLedTeams = teams.filter(t => t.leaderId === currentStudent.id);
-
-    if (myLedTeams.length === 0) {
-      alert("You haven't formed any squads yet! Please switch to the 'Teams' tab and click 'Form New Squad' so you can invite teammates.");
+      handleOpenLoginModal('direct');
       return;
     }
 
-    // Opens interactive modal asking which squad to invite into (especially when leader has > 1 team)
+    // Opens interactive modal allowing user to choose an existing squad OR form a new one on the fly!
     setInviteModalCandidate(candidateStudent);
     setIsInviteModalOpen(true);
   };
@@ -655,7 +654,7 @@ export default function App() {
     setNotifications(prev => [newNotif, ...prev]);
     saveCloudNotification(newNotif);
     confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
-    alert(`Squad invitation sent to ${candidate.name} for team "${team.name}"!`);
+    showToast(`🎉 Squad invitation dispatched to ${candidate.name} for "${team.name}"!`);
   };
 
   const handleSendJoinRequest = (targetTeam, applicantStudent) => {
@@ -678,6 +677,7 @@ export default function App() {
     setNotifications(prev => [newNotif, ...prev]);
     saveCloudNotification(newNotif);
     confetti({ particleCount: 60, spread: 50, origin: { y: 0.7 } });
+    showToast(`🚀 Join request sent to "${targetTeam.name}"! The leader will be notified.`);
   };
 
   const handleAcceptInvite = (notif) => {
@@ -891,7 +891,7 @@ export default function App() {
         onHostSuccess={handleCreateHackathon}
       />
 
-      {/* Choose Squad for Invitation Modal */}
+      {/* Choose Squad or Form New Squad for Invitation Modal */}
       <InviteToTeamModal
         isOpen={isInviteModalOpen}
         onClose={() => {
@@ -901,6 +901,8 @@ export default function App() {
         candidate={inviteModalCandidate}
         ledTeams={teams.filter(t => t.leaderId === currentStudent?.id)}
         currentStudent={activeStudentProfile}
+        hackathons={hackathons}
+        onCreateTeam={handleCreateTeam}
         onConfirmInvite={handleConfirmSendInvite}
       />
 
@@ -929,6 +931,26 @@ export default function App() {
         scanProgress={scanProgress}
         scanReport={scanReport}
       />
+
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 animate-fadeIn">
+          <div className={`p-4 rounded-2xl shadow-2xl border flex items-center gap-3 text-xs font-bold backdrop-blur-md ${
+            toastMessage.type === 'error'
+              ? 'bg-rose-50/95 text-rose-900 border-rose-200'
+              : 'bg-slate-900/95 text-white border-slate-700'
+          }`}>
+            <Sparkles className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <span>{toastMessage.message}</span>
+            <button
+              onClick={() => setToastMessage(null)}
+              className="ml-2 p-1 text-slate-400 hover:text-white rounded-lg transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );
