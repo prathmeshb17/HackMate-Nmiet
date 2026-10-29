@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import confetti from 'canvas-confetti';
+import { Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
 import { INITIAL_STUDENTS } from './data/initialStudents.js';
 import { INITIAL_HACKATHONS } from './data/initialHackathons.js';
 import { INITIAL_TEAMS } from './data/initialTeams.js';
@@ -631,28 +632,41 @@ export default function App() {
   };
 
   const handleConfirmSendInvite = ({ team, candidate, roleOffered, message }) => {
-    const hackathon = hackathons.find(h => h.id === team.hackathonId) || { id: team.hackathonId, title: team.hackathonTitle };
+    try {
+      const hackathon = hackathons.find(h => h.id === team?.hackathonId) || {
+        id: team?.hackathonId || 'hack-default',
+        title: team?.hackathonTitle || 'Hackathon'
+      };
 
-    const newNotif = {
-      id: `notif-${Date.now()}`,
-      type: 'RECRUIT_INVITE',
-      recipientId: candidate.id,
-      senderTeamId: team.id,
-      senderTeamName: team.name,
-      senderLeaderName: currentStudent.name,
-      hackathonId: hackathon.id,
-      hackathonTitle: team.hackathonTitle,
-      roleOffered: roleOffered || candidate.preferredRole || 'Teammate',
-      message: message || `Hi ${candidate.name}, ${currentStudent.name} invited you to join "${team.name}" for ${team.hackathonTitle}!`,
-      matchScore: Math.floor(Math.random() * 15) + 85,
-      status: 'PENDING',
-      timestamp: 'Just now'
-    };
+      const leaderName = currentStudent?.name || team?.leaderName || 'Squad Leader';
+      const candName = candidate?.name || 'Teammate';
+      const teamName = team?.name || 'Squad';
 
-    setNotifications(prev => [newNotif, ...prev]);
-    saveCloudNotification(newNotif);
-    confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
-    showToast(`🎉 Squad invitation dispatched to ${candidate.name} for "${team.name}"!`);
+      const newNotif = {
+        id: `notif-${Date.now()}`,
+        type: 'RECRUIT_INVITE',
+        recipientId: candidate?.id,
+        senderTeamId: team?.id,
+        senderTeamName: teamName,
+        senderLeaderName: leaderName,
+        hackathonId: hackathon.id,
+        hackathonTitle: team?.hackathonTitle || hackathon.title,
+        roleOffered: roleOffered || candidate?.preferredRole || 'Teammate',
+        message: message || `Hi ${candName}, ${leaderName} invited you to join "${teamName}" for ${team?.hackathonTitle || hackathon.title}!`,
+        matchScore: Math.floor(Math.random() * 15) + 85,
+        status: 'PENDING',
+        timestamp: 'Just now'
+      };
+
+      setNotifications(prev => [newNotif, ...prev]);
+      saveCloudNotification(newNotif);
+      try {
+        confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
+      } catch (e) {}
+      showToast(`🎉 Squad invitation dispatched to ${candName} for "${teamName}"!`);
+    } catch (err) {
+      console.error('Error sending invite:', err);
+    }
   };
 
   const handleSendJoinRequest = (targetTeam, applicantStudent) => {
