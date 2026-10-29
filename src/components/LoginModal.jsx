@@ -45,7 +45,7 @@ export default function LoginModal({
     if (currentStudent && currentStudent.id) {
       idSet.add(currentStudent.id);
     }
-    const matched = allStudents.filter(s => idSet.has(s.id));
+    const matched = allStudents.filter(s => s && idSet.has(s.id) && s.bio !== 'DELETED' && s.name !== '[DELETED]');
 
     // Fallback: check localStorage for any locally saved student data if Supabase sync is pending
     try {
@@ -54,7 +54,7 @@ export default function LoginModal({
         const parsed = JSON.parse(localSaved);
         if (Array.isArray(parsed)) {
           parsed.forEach(s => {
-            if (idSet.has(s.id) && !matched.some(m => m.id === s.id)) {
+            if (s && s.bio !== 'DELETED' && s.name !== '[DELETED]' && idSet.has(s.id) && !matched.some(m => m.id === s.id)) {
               matched.push(s);
             }
           });

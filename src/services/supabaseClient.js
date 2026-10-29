@@ -26,7 +26,7 @@ export async function hashPassword(password, salt = 'hackmate_salt_2026') {
 // 1. STUDENTS SYNC HELPERS
 // ==========================================
 export function mapStudentFromDb(s) {
-  if (!s) return null;
+  if (!s || s.bio === 'DELETED' || s.name === '[DELETED]') return null;
 
   let resumeUrl = s.resume || '';
   let passwordHash = s.password_hash || '';
@@ -83,13 +83,14 @@ export async function getCloudStudents() {
     const { data, error } = await supabase
       .from('students')
       .select('*')
+      .neq('bio', 'DELETED')
       .order('created_at', { ascending: false });
 
     if (error) {
       console.warn('Supabase getStudents error:', error);
       return null;
     }
-    return (data || []).map(mapStudentFromDb);
+    return (data || []).map(mapStudentFromDb).filter(Boolean);
   } catch (err) {
     console.error('getCloudStudents failed:', err);
     return null;
@@ -102,11 +103,12 @@ export async function findCloudStudent(identifier) {
     const q = identifier.trim().toLowerCase();
     const { data, error } = await supabase
       .from('students')
-      .select('*');
+      .select('*')
+      .neq('bio', 'DELETED');
 
     if (error || !data) return null;
 
-    const mapped = data.map(mapStudentFromDb);
+    const mapped = data.map(mapStudentFromDb).filter(Boolean);
     return mapped.find(s => {
       const email = (s.email || '').toLowerCase();
       const uname = (s.username || '').toLowerCase();
@@ -328,7 +330,7 @@ export async function saveCloudMessage(teamId, message) {
 // 4. NOTIFICATIONS SYNC HELPERS
 // ==========================================
 export function mapNotificationFromDb(n) {
-  if (!n) return null;
+  if (!n || n.status === 'DELETED') return null;
   return {
     id: n.id,
     type: n.type,
@@ -354,11 +356,12 @@ export async function getCloudNotifications() {
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
+      .neq('status', 'DELETED')
       .order('created_at', { ascending: false });
 
     if (error) return null;
 
-    return (data || []).map(mapNotificationFromDb);
+    return (data || []).map(mapNotificationFromDb).filter(Boolean);
   } catch (err) {
     console.error('getCloudNotifications failed:', err);
     return null;
@@ -412,7 +415,12 @@ export function subscribeToRealtimeChanges({
         if (payload.eventType === 'DELETE') {
           onStudentChange({ type: 'DELETE', id: payload.old.id });
         } else {
-          onStudentChange({ type: payload.eventType, student: mapStudentFromDb(payload.new) });
+          const mapped = mapStudentFromDb(payload.new);
+          if (!mapped) {
+            onStudentChange({ type: 'DELETE', id: payload.new.id });
+          } else {
+            onStudentChange({ type: payload.eventType, student: mapped });
+          }
         }
       }
     })

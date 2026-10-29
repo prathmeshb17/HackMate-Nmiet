@@ -47,14 +47,31 @@ import {
 } from './services/supabaseClient.js';
 
 export default function App() {
+  const ACCOUNTS_PURGE_VERSION = 'v2026_10_30_wipe_all_accounts_v3';
+  try {
+    const currentPurgeVersion = localStorage.getItem('hackmate_accounts_purge_version');
+    if (currentPurgeVersion !== ACCOUNTS_PURGE_VERSION) {
+      localStorage.removeItem('hackmate_students');
+      localStorage.removeItem('hackmate_current_student_id');
+      localStorage.removeItem('hackmate_my_created_profile_ids');
+      localStorage.removeItem('hackmate_teams');
+      localStorage.removeItem('hackmate_notifications');
+      localStorage.removeItem('hackmate_team_messages');
+      localStorage.setItem('hackmate_accounts_purge_version', ACCOUNTS_PURGE_VERSION);
+    }
+  } catch (e) {
+    console.error('Account purge version check error:', e);
+  }
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [students, setStudents] = useState(() => {
     try {
       const saved = localStorage.getItem('hackmate_students');
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Clean out any demo seeds if previously loaded
-        return parsed.filter(s => !s.id.startsWith('s-alex') && !s.id.startsWith('s-priya') && !s.id.startsWith('s-marcus') && !s.id.startsWith('s-sofia') && !s.id.startsWith('s-david') && !s.id.startsWith('s-elena'));
+        return Array.isArray(parsed)
+          ? parsed.filter(s => s && s.bio !== 'DELETED' && s.name !== '[DELETED]')
+          : [];
       }
       return INITIAL_STUDENTS;
     } catch {
@@ -64,9 +81,6 @@ export default function App() {
   const [currentStudentId, setCurrentStudentId] = useState(() => {
     try {
       const id = localStorage.getItem('hackmate_current_student_id');
-      if (id && (id.startsWith('s-alex') || id.startsWith('s-priya') || id.startsWith('s-marcus') || id.startsWith('s-sofia') || id.startsWith('s-david') || id.startsWith('s-elena'))) {
-        return null;
-      }
       return id || null;
     } catch {
       return null;
@@ -155,23 +169,7 @@ export default function App() {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
       }
-      const initialIds = [];
-      const currentId = localStorage.getItem('hackmate_current_student_id');
-      if (currentId && !currentId.startsWith('s-alex') && !currentId.startsWith('s-priya') && !currentId.startsWith('s-marcus') && !currentId.startsWith('s-sofia') && !currentId.startsWith('s-david') && !currentId.startsWith('s-elena')) {
-        initialIds.push(currentId);
-      }
-      const localStudentsRaw = localStorage.getItem('hackmate_students');
-      if (localStudentsRaw) {
-        const localStudents = JSON.parse(localStudentsRaw);
-        if (Array.isArray(localStudents)) {
-          localStudents.forEach(s => {
-            if (s.id && s.id.startsWith('std-') && !initialIds.includes(s.id)) {
-              initialIds.push(s.id);
-            }
-          });
-        }
-      }
-      return initialIds;
+      return [];
     } catch {
       return [];
     }
